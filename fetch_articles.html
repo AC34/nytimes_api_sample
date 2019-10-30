@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<!--このファイルは、https://github.com/mdn/learning-area/blob/master/javascript/apis/third-party-apis/nytimes/index.htmlを参考として、より簡素化して１つのファイルにまとめたものです。-->
+<!--NYTimesのapiについては、次URLを参照してください。 https://developer.nytimes.com/-->
+<!--このサンプルを試すには、107行目の Your Key Here をapiキーに置き換えてください。-->
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>NYT api</title>
+    <style>
+        body {
+            width: 100%;
+            padding: 0;
+            margin: 0;
+        }
+
+        #wrapper {
+            text-align: center;
+            margin: 0 auto;
+            display: block;
+            width: 500px;
+        }
+
+        #control {
+            text-align: center;
+            display: block;
+            width: 500px;
+            height: auto;
+        }
+
+        #control p {
+            text-align: center;
+            display: block;
+        }
+
+        #control p * {
+            display: inline;
+        }
+
+        #results {
+            text-align: center;
+            width: 500px;
+            height: auto;
+            display: block;
+        }
+
+        #articles>article {
+            margin: 0 auto;
+            width: 400px;
+            height: auto;
+        }
+
+        #articles>article>img {
+            width: 300px;
+            height: auto;
+        }
+
+        #articles>article>p>input[type="button"] {
+            cursor: pointer;
+            box-shadow: 2px 2px #dcdcdc;
+            border: none;
+            background: #ececec;
+            display: inline-block;
+            margin: 4px;
+            border-radius: 3px;
+        }
+
+        #articles>article>p>input[type="button"]:hover {
+            box-shadow: none;
+            background: none;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="wrapper">
+        <h1>NYT articles search API 2019</h1>
+        <div id="control">
+            <form action="" id="search_form">
+                <p>
+                    <label for="search">検索単語を入力:</label>
+                    <input type="text" id="search" required>
+                    <button id="submit">Search</button>
+                </p>
+            </form>
+        </div>
+        <div id="view">
+            <nav id="navigation">
+                <button id="prev">prev(10)</button>
+                <button id="next">next(10)</button>
+            </nav>
+            <hr>
+            <section id="articles"></section>
+        </div>
+    </div>
+    <script>
+        //変数へdom要素を格納
+        var searchText = document.querySelector("#search");
+        var searchForm = document.querySelector("#search_form");
+        var submitBtn = document.querySelector("#submit");
+        var prevBtn = document.querySelector("#prev");
+        var nextBtn = document.querySelector("#next");
+        var nav = document.querySelector("#navigation");
+        //APIキーの登録
+        var key = "Your Key Here";
+        //デフォルトのページナンバーは0とする
+        var pageNumber = 0
+        //記事表示領域
+        var articles = document.querySelector("#articles");
+        //apiへのベースURL
+        var baseURL = "https://api.nytimes.com/svc/search/v2/articlesearch.json"
+        //キーを追加
+        baseURL += "?api-key=" + key
+        //fetchResultsで初期化された後にdisplayResultsで使用する
+        var url;
+
+        //イベントリスナの登録
+        searchForm.addEventListener('submit', submitSearch)
+        nextBtn.addEventListener('click', nextPage)
+        prevBtn.addEventListener('click', prevPage)
+
+        function submitSearch(e) {
+            pageNumber = 0;
+            fetchResults(e);
+        }
+        function fetchResults(e) {
+            //preventDefaultを使用して、フォームが送信されるのを防ぐ
+            e.preventDefault();
+            //URLを生成
+            url = baseURL + '&q=' + searchText.value + '&page=' + pageNumber;
+            console.log("url=" + url)
+
+            //結果をfetch()関数で取得する
+            fetch(url).then(function (result) {
+                //json形式に変換して返す
+                return result.json();
+            }).then(function (json) {
+                //表示用関数へjsonを渡す
+                displayResults(json);
+            });
+        }
+        function displayResults(json) {
+            //古い記事を取り除く
+            while (articles.firstChild) {
+                articles.removeChild(articles.firstChild);
+            }
+            var fetched_articles = json.response.docs;
+
+            if (fetched_articles.length === 10) {
+                nav.style.display == "block"
+            } else {
+                nav.style.display == "none"
+            }
+            if (articles.length === 0) {
+                var paragraph = document.createElement("p");
+                paragraph.textContent = "No results returned."
+                articles.appendChild(paragraph);
+            } else {
+                for (var i = 0; i < fetched_articles.length; i++) {
+                    var article = document.createElement("article");
+                    var heading = document.createElement("h2");
+                    var link = document.createElement("a")
+                    var img = document.createElement("img");
+                    img.decoding = "async"
+                    var para1 = document.createElement("p");
+                    var para2 = document.createElement("p");
+                    var clearfix = document.createElement("div");
+                    var current = fetched_articles[i];
+                    link.href = current.web_url;
+                    link.textContent = current.headline.main;
+                    for (var j = 0; j < current.keywords.length; j++) {
+                        var tag = document.createElement("input");
+                        tag.type = "button"
+                        tag.value = current.keywords[j].value;
+                        tag.onclick = function () {
+                            searchText.value = this.value;
+                            submitBtn.click();
+                        };
+                        para2.appendChild(tag);
+                    }
+
+                    if (current.multimedia.length > 0) {
+                        img.src = 'http://www.nytimes.com/' + current.multimedia[0].url;
+                        img.alt = current.headline.main;
+                    }
+
+                    article.appendChild(heading);
+                    heading.appendChild(link);
+                    article.appendChild(img);
+                    article.appendChild(para1);
+                    article.appendChild(para2);
+                    articles.appendChild(article);
+                }
+            }
+
+        };
+        function nextPage(e) {
+            pageNumber++;
+            fetchResults(e);
+        };
+        function prevPage(e) {
+            if (pageNumber > 0) {
+                pageNumber--;
+            } else {
+                return;
+            }
+            fetchResults(e);
+        };
+    </script>
+</body>
+
+</html>
